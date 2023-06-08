@@ -4,6 +4,7 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const { decode } = require("jsonwebtoken");
 // middleware
 app.use(cors());
 app.use(express.json());
@@ -19,12 +20,36 @@ const client = new MongoClient(uri, {
   },
 });
 
+const verifyJWT = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    res.status(401).send({ error: true, message: "Unauthorized access" });
+  }
+  const token = authorization.split(" ")[0];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (error, decoded) => {
+    if (error) {
+      res.status(401).send({ error: true, message: "Unauthorized access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
     const usersCollection = client.db("rhythmDB").collection("users");
+
+    app.post("/jwt", (req, res) => {
+      const data = req.body;
+      const token = jwt.sign({ data }, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+
+      res.send({ token });
+    });
 
     //   get all the user by api
 
@@ -44,6 +69,23 @@ async function run() {
       const query = { role: "instructor" };
       const instructor = await usersCollection.find(query).toArray();
       res.send(instructor);
+    });
+
+    // get admin role api
+    app.get("/users/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      if (result.role === "admin") {
+        res.send({ admin: true });
+      } else {
+        res.send({ admin: false });
+      }
+    });
+
+    // update user role api
+    app.patch("/users", async (req, res) => {
+      const role = req.query.role;
     });
 
     // Send a ping to confirm a successful connection
