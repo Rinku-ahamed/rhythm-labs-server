@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { decode } = require("jsonwebtoken");
 // middleware
 app.use(cors());
@@ -84,8 +84,26 @@ async function run() {
     });
 
     // update user role api
-    app.patch("/users", async (req, res) => {
-      const role = req.query.role;
+    app.patch("/users/roleUpdate", async (req, res) => {
+      const userRole = req.query.role;
+      const id = req.query.id;
+      const filter = { _id: new ObjectId(id) };
+      let updatedRole = {};
+      if (userRole === "instructor") {
+        updatedRole = {
+          $set: {
+            role: "instructor",
+          },
+        };
+      } else if (userRole === "admin") {
+        updatedRole = {
+          $set: {
+            role: "admin",
+          },
+        };
+      }
+      const result = await usersCollection.updateOne(filter, updatedRole);
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
