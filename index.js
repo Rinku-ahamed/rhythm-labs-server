@@ -82,6 +82,32 @@ async function run() {
         res.send({ admin: false });
       }
     });
+    // get instructor role api
+    app.get("/users/instructor/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      if (result.role === "instructor") {
+        res.send({ instructor: true });
+      } else {
+        res.send({ instructor: false });
+      }
+    });
+    // get student role api
+    app.get("/users/student/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      console.log(result);
+      if (result.role === "student") {
+        console.log("from true");
+        res.send({ student: true });
+      } else {
+        console.log("from false");
+        res.send({ student: false });
+      }
+    });
 
     // update user role api
     app.patch("/users/roleUpdate", async (req, res) => {
