@@ -41,6 +41,7 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db("rhythmDB").collection("users");
+    const classesCollection = client.db("rhythmDB").collection("classes");
 
     app.post("/jwt", (req, res) => {
       const data = req.body;
@@ -96,17 +97,26 @@ async function run() {
     // get student role api
     app.get("/users/student/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      console.log(result);
       if (result.role === "student") {
-        console.log("from true");
         res.send({ student: true });
       } else {
-        console.log("from false");
         res.send({ student: false });
       }
+    });
+
+    // get all classes by this api
+    app.get("/classes", async (req, res) => {
+      const result = await classesCollection.find().toArray();
+      res.send(result);
+    });
+
+    // create api for add new class by instructor
+    app.post("/class", async (req, res) => {
+      const data = req.body;
+      const result = await classesCollection.insertOne(data);
+      res.send(result);
     });
 
     // update user role api
