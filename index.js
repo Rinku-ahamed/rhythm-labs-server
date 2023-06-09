@@ -119,6 +119,29 @@ async function run() {
       res.send(result);
     });
 
+    // updated classes api
+    app.get("/classes/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await classesCollection.findOne(filter);
+      res.send(result);
+    });
+    // updated classes api
+    app.put("/classes/:id", async (req, res) => {
+      const id = req.params.id;
+      const classData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          className: classData.className,
+          price: parseFloat(classData.price),
+          seats: parseInt(classData.seats),
+        },
+      };
+      const result = await classesCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
     // update user role api
     app.patch("/users/roleUpdate", async (req, res) => {
       const userRole = req.query.role;
@@ -165,16 +188,17 @@ async function run() {
     });
 
     // update class feedback by api
-    app.patch("/feedback", async (req, res) => {
-      const feedback = req.query.feedback;
+    app.patch("/classes/feedback", async (req, res) => {
+      const feedback = req.query.feed;
       const id = req.query.id;
       const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
+      console.log(feedback);
+      const updatedFeedback = {
         $set: {
           feedback: feedback,
         },
       };
-      const result = await classesCollection.updateOne(filter, updatedDoc);
+      const result = await classesCollection.updateOne(filter, updatedFeedback);
       res.send(result);
     });
 
