@@ -142,6 +142,28 @@ async function run() {
       res.send(result);
     });
 
+    app.patch("/classes/statusUpdate", async (req, res) => {
+      const status = req.query.status;
+      const id = req.query.id;
+      const filter = { _id: new ObjectId(id) };
+      let updatedStatus = {};
+      if (status === "approved") {
+        updatedStatus = {
+          $set: {
+            status: "approved",
+          },
+        };
+      } else if (status === "deny") {
+        updatedStatus = {
+          $set: {
+            status: "deny",
+          },
+        };
+      }
+      const result = await classesCollection.updateOne(filter, updatedStatus);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
