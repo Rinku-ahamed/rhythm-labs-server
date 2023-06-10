@@ -1,12 +1,13 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { decode } = require("jsonwebtoken");
 // middleware
-app.use(cors());
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6o5zgbq.mongodb.net/?retryWrites=true&w=majority`;
@@ -42,6 +43,7 @@ async function run() {
 
     const usersCollection = client.db("rhythmDB").collection("users");
     const classesCollection = client.db("rhythmDB").collection("classes");
+    const paymentsCollection = client.db("rhythmDB").collection("payment");
     const selectedClassCollection = client
       .db("rhythmDB")
       .collection("selectedClass");
@@ -129,11 +131,43 @@ async function run() {
       const result = await classesCollection.findOne(filter);
       res.send(result);
     });
+    // payment related api
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      res.send(result);
+    });
+    // Create payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
+    // get student selected class api
+    app.get("/selectedClass", async (req, res) => {
+      const email = req.query.email;
+      const query = { userEmail: email };
+      const result = await selectedClassCollection.find(query).toArray();
+      res.send(result);
+    });
     // student selected class api
     app.post("/selectedClass", async (req, res) => {
       const data = req.body;
       const result = await selectedClassCollection.insertOne(data);
+      res.send(result);
+    });
+    app.delete("/selectedClass/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await selectedClassCollection.deleteOne(query);
       res.send(result);
     });
 
