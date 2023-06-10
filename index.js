@@ -124,13 +124,28 @@ async function run() {
       res.send(result);
     });
 
-    // updated classes api
+    // get single classes api
     app.get("/classes/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await classesCollection.findOne(filter);
       res.send(result);
     });
+
+    app.patch("/classes/seatsUpdate", async (req, res) => {
+      const id = req.query.id;
+      const filter = { _id: new ObjectId(id) };
+      const exitingClass = await classesCollection.findOne(filter);
+      let updatedSeats = {};
+      if (exitingClass.seats != 0) {
+        updatedSeats = {
+          $set: { seats: exitingClass.seats - 1 },
+        };
+      }
+      const result = await classesCollection.updateOne(filter, updatedSeats);
+      res.send(result);
+    });
+
     // payment related api
     app.post("/payments", async (req, res) => {
       const payment = req.body;
@@ -157,6 +172,13 @@ async function run() {
       const query = { userEmail: email };
       const result = await selectedClassCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // get all payment info
+    app.get("/enrolledClass/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const enrolledClass = await paymentsCollection.find(query).toArray();
     });
     // student selected class api
     app.post("/selectedClass", async (req, res) => {
@@ -237,7 +259,6 @@ async function run() {
       const feedback = req.query.feed;
       const id = req.query.id;
       const filter = { _id: new ObjectId(id) };
-      console.log(feedback);
       const updatedFeedback = {
         $set: {
           feedback: feedback,
