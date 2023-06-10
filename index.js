@@ -42,6 +42,9 @@ async function run() {
 
     const usersCollection = client.db("rhythmDB").collection("users");
     const classesCollection = client.db("rhythmDB").collection("classes");
+    const selectedClassCollection = client
+      .db("rhythmDB")
+      .collection("selectedClass");
 
     app.post("/jwt", (req, res) => {
       const data = req.body;
@@ -77,7 +80,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      if (result.role === "admin") {
+      if (result?.role === "admin") {
         res.send({ admin: true });
       } else {
         res.send({ admin: false });
@@ -88,7 +91,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      if (result.role === "instructor") {
+      if (result?.role === "instructor") {
         res.send({ instructor: true });
       } else {
         res.send({ instructor: false });
@@ -99,7 +102,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const result = await usersCollection.findOne(query);
-      if (result.role === "student") {
+      if (result?.role === "student") {
         res.send({ student: true });
       } else {
         res.send({ student: false });
@@ -126,6 +129,14 @@ async function run() {
       const result = await classesCollection.findOne(filter);
       res.send(result);
     });
+
+    // student selected class api
+    app.post("/selectedClass", async (req, res) => {
+      const data = req.body;
+      const result = await selectedClassCollection.insertOne(data);
+      res.send(result);
+    });
+
     // updated classes api
     app.put("/classes/:id", async (req, res) => {
       const id = req.params.id;
