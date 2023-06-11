@@ -150,6 +150,31 @@ async function run() {
     app.post("/payments", async (req, res) => {
       const payment = req.body;
       const result = await paymentsCollection.insertOne(payment);
+      const selectedId = payment?.selectedClassId;
+      const enrolledId = payment?.enrolledClassId;
+      const filter = { _id: new ObjectId(enrolledId) };
+      const enrolledClass = await classesCollection.findOne(filter);
+      console.log(enrolledClass);
+      const totalEnrolled = {
+        $set: {
+          totalEnrolledStudents: enrolledClass.totalEnrolledStudents + 1,
+        },
+      };
+      const updatedEnrolledStudent = await classesCollection.updateOne(
+        filter,
+        totalEnrolled
+      );
+
+      // deleted after successfully payment
+      const query = { _id: new ObjectId(selectedId) };
+      const deleteResult = await selectedClassCollection.deleteOne(query);
+      res.send({ result, deleteResult, updatedEnrolledStudent });
+    });
+
+    app.get("/paymentHistory/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentsCollection.find(query).toArray();
       res.send(result);
     });
     // Create payment intent
@@ -175,11 +200,11 @@ async function run() {
     });
 
     // get all payment info
-    app.get("/enrolledClass/:email", async (req, res) => {
-      const email = req.params.email;
-      const query = { email: email };
-      const enrolledClass = await paymentsCollection.find(query).toArray();
-    });
+    // app.get("/enrolledClass/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const query = { email: email };
+    //   const enrolledClass = await paymentsCollection.find(query).toArray();
+    // });
     // student selected class api
     app.post("/selectedClass", async (req, res) => {
       const data = req.body;
