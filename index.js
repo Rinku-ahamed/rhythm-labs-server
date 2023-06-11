@@ -5,7 +5,7 @@ const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const { decode } = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 // middleware
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
@@ -19,14 +19,18 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  maxPoolSize: 10,
 });
 
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
+  console.log(authorization);
   if (!authorization) {
     res.status(401).send({ error: true, message: "Unauthorized access" });
   }
-  const token = authorization.split(" ")[0];
+  const token = authorization.split(" ")[1];
   jwt.verify(token, process.env.ACCESS_TOKEN, (error, decoded) => {
     if (error) {
       res.status(401).send({ error: true, message: "Unauthorized access" });
@@ -39,11 +43,17 @@ const verifyJWT = (req, res, next) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    client.connect((error) => {
+      if (error) {
+        console.error(error);
+        return;
+      }
+    });
 
     const usersCollection = client.db("rhythmDB").collection("users");
     const classesCollection = client.db("rhythmDB").collection("classes");
     const paymentsCollection = client.db("rhythmDB").collection("payment");
+    const enrolledCollection = client.db("rhythmDB").collection("enrolled");
     const selectedClassCollection = client
       .db("rhythmDB")
       .collection("selectedClass");
@@ -56,6 +66,17 @@ async function run() {
 
       res.send({ token });
     });
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden message" });
+      }
+      next();
+    };
 
     //   get all the user by api
 
@@ -116,6 +137,18 @@ async function run() {
       const result = await classesCollection.find().toArray();
       res.send(result);
     });
+    // get popular classes by this api
+    app.get("/popularClasses", async (req, res) => {
+      const query = { status: "approved" };
+      const result = await classesCollection
+        .find(query)
+        .sort({
+          totalEnrolledStudents: -1,
+        })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
 
     // create api for add new class by instructor
     app.post("/class", async (req, res) => {
@@ -152,9 +185,25 @@ async function run() {
       const result = await paymentsCollection.insertOne(payment);
       const selectedId = payment?.selectedClassId;
       const enrolledId = payment?.enrolledClassId;
+
       const filter = { _id: new ObjectId(enrolledId) };
-      const enrolledClass = await classesCollection.findOne(filter);
+      const options = {
+        projection: {
+          _id: 0,
+          className: 1,
+          classImage: 1,
+          instructorEmail: 1,
+          instructorName: 1,
+          price: 1,
+        },
+      };
+      const enrolledClass = await classesCollection.findOne(filter, options);
       console.log(enrolledClass);
+      enrolledClass.email = payment?.email;
+      // add enrolled data in enrolled collection
+      const myEnrolledClass = await enrolledCollection.insertOne(enrolledClass);
+
+      // updated total student enrolled filed
       const totalEnrolled = {
         $set: {
           totalEnrolledStudents: enrolledClass.totalEnrolledStudents + 1,
@@ -168,13 +217,21 @@ async function run() {
       // deleted after successfully payment
       const query = { _id: new ObjectId(selectedId) };
       const deleteResult = await selectedClassCollection.deleteOne(query);
-      res.send({ result, deleteResult, updatedEnrolledStudent });
+      res.send({
+        result,
+        updatedEnrolledStudent,
+        deleteResult,
+        myEnrolledClass,
+      });
     });
 
     app.get("/paymentHistory/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await paymentsCollection.find(query).toArray();
+      const result = await paymentsCollection
+        .find(query)
+        .sort({ date: -1 })
+        .toArray();
       res.send(result);
     });
     // Create payment intent
@@ -199,12 +256,13 @@ async function run() {
       res.send(result);
     });
 
-    // get all payment info
-    // app.get("/enrolledClass/:email", async (req, res) => {
-    //   const email = req.params.email;
-    //   const query = { email: email };
-    //   const enrolledClass = await paymentsCollection.find(query).toArray();
-    // });
+    // enrolled class get
+    app.get("/enrolledClass/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const enrolledClass = await enrolledCollection.find(query).toArray();
+      res.send(enrolledClass);
+    });
     // student selected class api
     app.post("/selectedClass", async (req, res) => {
       const data = req.body;
