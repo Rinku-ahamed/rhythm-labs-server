@@ -7,7 +7,7 @@ const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 // middleware
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(cors());
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6o5zgbq.mongodb.net/?retryWrites=true&w=majority`;
@@ -21,7 +21,7 @@ const client = new MongoClient(uri, {
   },
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  maxPoolSize: 10,
+  maxPoolSize: 30,
 });
 
 const verifyJWT = (req, res, next) => {
